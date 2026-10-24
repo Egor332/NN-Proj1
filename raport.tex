@@ -1,0 +1,591 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[polish]{babel}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{subcaption}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{microtype}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+
+\geometry{
+    a4paper,
+    top=25mm,
+    bottom=25mm,
+    left=25mm,
+    right=25mm
+}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue!70!black,
+    citecolor=blue!70!black,
+    urlcolor=blue!70!black
+}
+
+\graphicspath{{figures/}{src/experiments/04_training_dynamics/results/}}
+
+% Styl listingów kodu
+\lstset{
+    basicstyle=\ttfamily\footnotesize,
+    breaklines=true,
+    frame=single,
+    backgroundcolor=\color{gray!5},
+    keywordstyle=\color{blue}\bfseries,
+    commentstyle=\color{green!50!black}\itshape,
+    stringstyle=\color{red!60!black},
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    stepnumber=1,
+    tabsize=4,
+    showstringspaces=false
+}
+
+\begin{document}
+
+% ============================================================================
+% STRONA TYTUŁOWA
+% ============================================================================
+\begin{titlepage}
+    \centering
+    {\fontsize{60}{30}\selectfont \textbf{Sieci Neuronowe} \par}
+    \vspace{1.5cm}
+    {\fontsize{30}{20}\selectfont Projekt 1 \par}
+    \vspace{5cm}
+    {\fontsize{36}{20}\selectfont \textbf{Implementacja Perceptronu Wielowarstwowego} \par}
+    \vspace{7.5cm}
+    
+    {\fontsize{26}{20}\selectfont  
+    Sandra Adamiec\\
+    Yahor Kachanouski
+    \par}
+    \vspace{0.5cm}
+    \vfill
+    
+    {\large październik 2026 \par}
+    
+\end{titlepage}
+
+\tableofcontents
+\newpage
+
+% ============================================================================
+% SEKCJA 1: WPROWADZENIE I CELE PROJEKTU
+% ============================================================================
+\section{Wprowadzenie i cele projektu}
+
+\subsection{Wprowadzenie}
+Celem projektu jest samodzielna implementacja sieci neuronowej typu perceptron wielowarstwowy od poziomu podstawowego, bez użycia zewnętrznych bibliotek wysokopoziomowych przeznaczonych do uczenia maszynowego. Implementacja pozwala na rozwiązywanie zadań aproksymacji/regresji funkcji $\mathbb{R} \to \mathbb{R}$ oraz klasyfikacji danych w przestrzeni $\mathbb{R}^2$ i wielowymiarowej z użyciem algorytmu wstecznej propagacji błędu w połączeniu ze stochastycznym spadkiem wzdłuż gradientu (SGD).
+
+\subsection{Wymagania i cele zdefiniowane w zadaniu}
+Zgodnie ze specyfikacją projektu, zrealizowano następujące kluczowe założenia:
+\begin{enumerate}
+    \item \textbf{Poziom implementacji:} 
+    Kod został zrealizowany od podstaw, bazując wyłącznie na bibliotece \texttt{numpy} do zwektoryzowanych operacji na macierzach i wektorach.
+    
+    \item \textbf{Elementy implementacyjne:}
+    \begin{itemize}
+        \item Możliwość pełnej inicjalizacji procesu z zadanym ziarnem generatora liczb losowych, zapewniająca powtarzalność i determinizm eksperymentów.
+        \item Łatwa, modułowa konfiguracja liczby warstw w sieci, liczby neuronów w poszczególnych warstwach oraz opcjonalnej obecności wektorów obciążeń.
+        \item Obsługa uczenia mini-batchowego z losowym tasowaniem próbek w każdej epoce.
+        \item Rejestracja i wizualizacja błędu propagowanego w kolejnych iteracjach uczenia (na zbiorze treningowym i testowym).
+        \item Rejestracja oraz wizualizacja ewolucji wartości wag i wielkości kroków aktualizacji w kolejnych epokach.
+    \end{itemize}
+
+    \item \textbf{Wymagany zakres badań eksperymentalnych:}
+    \begin{itemize}
+        \item \emph{Wpływ funkcji aktywacji}: zbadanie funkcji sigmoidalnej oraz dwóch innych wybranych funkcji (zaimplementowano ReLU oraz Tanh w warstwach ukrytych), z właściwym doborem funkcji aktywacji na warstwie wyjściowej (liniowa dla regresji, Softmax dla klasyfikacji).
+        \item \emph{Wpływ architektury sieci}: zbadanie wpływu liczby warstw ukrytych (od 0 do 4 warstw) oraz ich liczności na zdolności aproksymacyjne i generalizację.
+        \item \emph{Wpływ miar błędu na wyjściu}: porównanie dwóch różnych miar błędu dla zadania regresji (MSE oraz MAE) oraz dwóch dla zadania klasyfikacji (Softmax Cross-Entropy oraz Binary Cross-Entropy).
+    \end{itemize}
+\end{enumerate}
+
+% ============================================================================
+% SEKCJA 2: IMPLEMENTACJA
+% ============================================================================
+\section{Architektura i implementacja sieci}
+
+\subsection{Modułowość i wzorce projektowe}
+Konstrukcja biblioteki została oparta na paradygmacie obiektowym (OOP), czerpiąc wzorce architektoniczne ze standardów znanych z biblioteki PyTorch, lecz w całości zrealizowanych na prymitywach tablicowych \texttt{numpy.ndarray}. Kod podzielono na wyspecjalizowane, współpracujące moduły:
+
+\begin{itemize}
+    \item \textbf{Warstwy (\texttt{Layer})}: Klasa bazowa definiująca wspólny interfejs dla elementów sieci, z metodami \texttt{forward(*args)} oraz \texttt{backward(*args)}, a także metodą \texttt{get\_params()}, zwracającą listę obiektów parametrów podlegających optymalizacji.
+    \begin{itemize}
+        \item \texttt{LinearLayer}: w pełni połączona warstwa liniowa ($Y = XW + b$). Inicjalizacja wag odbywa się zgodnie z rozkładem normalnym skalowanym metodą Xaviera ($W \sim \mathcal{N}(0, \sqrt{2/d_{\text{in}}})$), a bias inicjalizowany jest zerami. Warstwa obsługuje opcjonalne wyłączenie biasu (\texttt{enable\_bias=False}).
+        \item \texttt{ActivationFunction}: warstwy aktywacji dziedziczące po \texttt{Layer}. Zaimplementowano:
+        \begin{itemize}
+            \item \texttt{CustomReLU}: $\sigma(x) = \max(0, x)$, $\sigma'(x) = \mathbb{I}(x > 0)$,
+            \item \texttt{Sigmoid}: $\sigma(x) = \frac{1}{1 + e^{-x}}$ z zabezpieczeniem numerycznym, $\sigma'(x) = \sigma(x)(1 - \sigma(x))$,
+            \item \texttt{Tanh}: $\sigma(x) = \tanh(x)$, $\sigma'(x) = 1 - \tanh^2(x)$,
+            \item \texttt{Linear}: funkcja tożsamościowa na wyjściu w zadaniach regresji ($\sigma(x) = x$, $\sigma'(x) = 1$).
+        \end{itemize}
+    \end{itemize}
+
+    \item \textbf{Funkcje straty (\texttt{Loss})}:
+    Abstrakcyjna klasa bazowa z metodami \texttt{forward(y\_true, y\_pred)} obliczającą skalarną wartość straty oraz \texttt{backward()} wyznaczającą wektor pochodnych cząstkowych $\frac{\partial \mathcal{L}}{\partial \hat{y}}$ względem wyjść sieci. Zaimplementowano:
+    \begin{itemize}
+        \item \textbf{Dla regresji}:
+        \begin{enumerate}
+            \item \texttt{MSELoss} (błąd średniokwadratowy): $\mathcal{L}_{\text{MSE}} = \frac{1}{N} \sum_{i=1}^N (y_i - \hat{y}_i)^2$, $\frac{\partial \mathcal{L}}{\partial \hat{y}} = \frac{2}{N}(\hat{y} - y)$,
+            \item \texttt{MAELoss} (średni błąd bezwzględny): $\mathcal{L}_{\text{MAE}} = \frac{1}{N} \sum_{i=1}^N |y_i - \hat{y}_i|$, $\frac{\partial \mathcal{L}}{\partial \hat{y}} = \frac{1}{N} \operatorname{sgn}(\hat{y} - y)$.
+        \end{enumerate}
+        \item \textbf{Dla klasyfikacji}:
+        \begin{enumerate}
+            \item \texttt{SoftmaxCrossEntropyLoss}: zespolona funkcja Softmax z entropią krzyżową operująca na logitach, z przesunięciem numerycznym względem maksimum wierszowego dla uniknięcia przepełnienia. Gradient analityczny wynosi $\frac{\partial \mathcal{L}}{\partial z} = \frac{1}{N}(p - y)$, co zapobiega niestabilnościom numerycznym.
+            \item \texttt{BinaryCrossEntropyLoss}: binarna entropia krzyżowa dla prawdopodobieństw wyjściowych z obcięciem $\varepsilon = 10^{-15}$.
+        \end{enumerate}
+    \end{itemize}
+
+    \item \textbf{Optymalizator (\texttt{Optimizer})}:
+    Klasa \texttt{SGD} implementująca stochastyczny spadek wzdłuż gradientu z mechanizmem momentum. Równania aktualizacji dla każdego parametru $\theta$:
+    \begin{equation}
+        v_t = \gamma v_{t-1} + \nabla_\theta \mathcal{L}, \quad \theta_{t+1} = \theta_t - \eta v_t,
+    \end{equation}
+    gdzie $\eta$ to learning rate, a $\gamma$ to współczynnik momentum. Optymalizator udostępnia również metodę \texttt{zero\_grad()}, która zeruje bufory gradientów przed kolejnym krokiem.
+
+    \item \textbf{Model sieci (\texttt{MLP})}:
+    Główna klasa orkiestrująca, zarządzająca sekwencją warstw. Odpowiada za:
+    \begin{itemize}
+        \item Propagację w przód (\texttt{forward}): przekazywanie danych wejściowych przez kolejne warstwy.
+        \item Propagację wsteczną (\texttt{backward}): propagację gradientu wyjściowego z funkcji straty wstecz przez odwróconą listę warstw (\texttt{reversed(self.layers)}).
+        \item Pętlę uczenia (\texttt{fit}): podział zbioru na mini-batche o zadanym rozmiarze, losową permutację indeksów przed każdą epoką, wywołanie optymalizatora oraz periodyczny zapis wag i historii błędu (\texttt{history}).
+    \end{itemize}
+\end{itemize}
+
+\subsection{Wektoryzacja}
+Wszystkie operacje w metodach \texttt{forward} i \texttt{backward} zostały w pełni zwektoryzowane. Macierze wejściowe $X$ mają wymiar $(N, d_{\text{in}})$, gdzie $N$ to rozmiar mini-batcha. 
+Dla warstwy liniowej $Y = XW + b$, gdzie $W \in \mathbb{R}^{d_{\text{in}} \times d_{\text{out}}}$ oraz $b \in \mathbb{R}^{1 \times d_{\text{out}}}$, propagacja wsteczna przy znanym gradiencie wyjściowym $\frac{\partial \mathcal{L}}{\partial Y} \in \mathbb{R}^{N \times d_{\text{out}}}$ wyznaczana jest jako:
+\begin{equation}
+    \frac{\partial \mathcal{L}}{\partial W} = X^T \frac{\partial \mathcal{L}}{\partial Y}, \quad 
+    \frac{\partial \mathcal{L}}{\partial b} = \sum_{i=1}^N \left(\frac{\partial \mathcal{L}}{\partial Y}\right)_{i,:}, \quad 
+    \frac{\partial \mathcal{L}}{\partial X} = \frac{\partial \mathcal{L}}{\partial Y} W^T.
+\end{equation}
+Dzięki wykorzystaniu iloczynów macierzowych w \texttt{numpy} obliczenia są wydajne i nie wymagają jawnych pętli po pojedynczych próbkach.
+
+\subsection{Weryfikacja poprawności działania na zadaniu regresji}
+W celu weryfikacji poprawności implementacji mechanizmu propagacji wstecznej, automatycznego wyznaczania gradientów oraz algorytmu optymalizacji, przeprowadzono test na nieliniowym zbiorze regresyjnym \texttt{cube} ($1000$ próbek).
+
+Zbudowano sieć z jedną warstwą ukrytą o strukturze:
+\begin{itemize}
+    \item Warstwa wejściowa: 1 cecha,
+    \item Warstwa ukryta: 32 neurony z funkcją aktywacji \texttt{CustomReLU},
+    \item Warstwa wyjściowa: 1 neuron z aktywacją \texttt{Linear},
+    \item Funkcja straty: \texttt{MSELoss}, optymalizator: \texttt{SGD} ($lr = 0.005$, $\text{momentum} = 0.9$), liczba epok: 30, batch size: 32, ziarno losowości: \texttt{seed = 42}.
+\end{itemize}
+
+Na rysunku~\ref{fig:regression_dynamics} przedstawiono pełną dynamikę procesu uczenia w postaci zestawienia czterech charakterystyk.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\textwidth]{regression_single_run_dynamics.png}
+    \caption{Dynamika uczenia sieci MLP (1 warstwa ukryta, 32 neurony ReLU, strata MSE) na zbiorze \texttt{cube 1000}. Wykresy przedstawiają spadek błędu treningowego, spadek błędu testowego, ewolucję normy wag $||W||_2$ oraz wielkość kroku aktualizacji wag $||\Delta W||_2$.}
+    \label{fig:regression_dynamics}
+\end{figure}
+
+\subsubsection{Analiza wyników weryfikacyjnych}
+Zarejestrowane przebiegi jednoznacznie potwierdzają prawidłowość działania zaimplementowanego silnika:
+\begin{enumerate}
+    \item \textbf{Spadek błędu treningowego (wykres 1):} Wartość błędu MSE na zbiorze uczącym gwałtownie spada w pierwszych epokach, po czym następuje płynna, asymptotyczna zbieżność. Świadczy to o prawidłowym wyznaczaniu kierunku antygradientu.
+    \item \textbf{Spadek błędu testowego (wykres 2):} Błąd na niezależnym zbiorze testowym wykazuje podobną dynamikę spadku jak błąd treningowy (lecz wartości są oczywiście  wyższe). Oznacza to, że sieć uczy się właściwego odwzorowania nieliniowej krzywej, unikając przeuczenia.
+    \item \textbf{Ewolucja normy wag $||W||_2$ (wykres 3):} Całkowita norma euklidesowa wszystkich parametrów sieci pokazuje oczekiwaną dynamikę zmian, szybki spadek, symbolizujący przestawienie sieci na "właściwe tory", po czym następuje lekkie konskwetne zwiększanie normy, które raczej nie wpływa znacząco na jakość predykcji.
+    \item \textbf{Wielkość kroku aktualizacji wag $||\Delta W||_2$ (wykres 4):} Wielkość przesunięcia wektora parametrów pomiędzy kolejnymi epokami ($||\theta_t - \theta_{t-1}||_2$) jest największa w początkowych epokach, po czym ulega systematycznemu, monotonicznemu wygaszeniu. Potwierdza to wyhamowywanie dynamiki w pobliżu lokalnego minimum funkcji celu i stabilność optymalizatora z pędem.
+\end{enumerate}
+
+% ============================================================================
+% SEKCJA 3: EKSPERYMENTY - FUNKCJE AKTYWACJI
+% ============================================================================
+\section{Eksperyment 1: Wpływ funkcji aktywacji}
+\label{sec:exp_activations}
+
+\subsection{Opis eksperymentu}
+Celem pierwszego eksperymentu było zbadanie wpływu wyboru funkcji aktywacji w warstwach ukrytych na szybkość zbieżności procesu uczenia, stabilność optymalizacji oraz ostateczną jakość predykcji sieci. Zgodnie z wymaganiami projektu przetestowano funkcję sigmoidalną (\texttt{Sigmoid}) oraz dwie inne wybrane funkcje nieliniowe: \texttt{ReLU} oraz \texttt{Tanh}.
+
+\subsubsection{Architektura sieci i parametry uczenia}
+Dla zachowania rzetelności porównania we wszystkich wariantach zastosowano identyczną strukturę sieci neuronowej z dwiema warstwami ukrytymi:
+\begin{itemize}
+    \item \textbf{Problem klasyfikacji}:
+    \begin{itemize}
+        \item Architektura: wejście 2 cechy $\to$ warstwa ukryta 32 neurony $\to$ warstwa ukryta 16 neuronów $\to$ wyjście 3 logity (klasy).
+        \item Funkcja aktywacji na wyjściu: brak jawnej aktywacji nieliniowej w strukturze sieci; wyjściowe logity przekazywane są bezpośrednio do zespolonej funkcji straty \texttt{SoftmaxCrossEntropyLoss}.
+        \item Optymalizator: stochastyczny spadek wzdłuż gradientu z momentum (\texttt{SGD}) z learning rate $\eta = 0.02$ i współczynniku momentum $\gamma = 0.9$.
+        \item Liczba epok: $20$ epok.
+        \item Ewaluacja: rejestracja metryki dokładności (\emph{Accuracy}) co $1$ epokę, począwszy od stanu zainicjalizowanego (epoka $0$).
+    \end{itemize}
+    \item \textbf{Problem regresji}:
+    \begin{itemize}
+        \item Architektura: wejście 1 cecha $\to$ warstwa ukryta 32 neurony $\to$ warstwa ukryta 16 neuronów $\to$ wyjście 1 neuron.
+        \item Funkcja aktywacji na wyjściu: tożsamościowa funkcja liniowa \texttt{Linear} ($\sigma(x) = x$), dedykowana dla problemów aproksymacji ciągłej.
+        \item Funkcja straty: błąd średniokwadratowy (\texttt{MSELoss}).
+        \item Optymalizator: \texttt{SGD} o learning rate $\eta = 0.01$ i momentum $\gamma = 0.9$.
+        \item Liczba epok: $50$ epok.
+        \item Ewaluacja: rejestracja błędu testowego MSE co $2$ epoki, począwszy od stanu początkowego (epoka $0$).
+    \end{itemize}
+\end{itemize}
+Zarówno dla regresji, jak i klasyfikacji, przed rozpoczęciem uczenia zastosowano standaryzację cech wejściowych (a w regresji także wartości docelowych) przy użyciu średniej i odchylenia standardowego wyznaczonych na zbiorze uczącym (\texttt{StandardScaler}).
+
+\subsubsection{Zbiory danych i dobór metryki sukcesu}
+Badania przeprowadzono na dwóch dedykowanych zbiorach danych, testując zachowanie modeli dla trzech różnych wielkości próby uczącej: $100$, $1000$ oraz $10\,000$ punktów:
+\begin{enumerate}
+    \item \textbf{Klasyfikacja (\texttt{data.three\_gauss})}: zadanie dyskryminacji trzech częściowo nakładających się skupisk gaussowskich w przestrzeni dwuwymiarowej $\mathbb{R}^2$.
+    \item \textbf{Regresja (\texttt{data.cube})}: zadanie aproksymacji silnie nieliniowej funkcji.
+\end{enumerate}
+
+\noindent\textbf{Równoliczność klas a wiarygodność metryki Accuracy:}\\
+Przed wykonaniem procedury treningowej przeprowadzono szczegółową analizę struktury zbiorów testowych zadania klasyfikacji. Weryfikacja wykazała, że we wszystkich wariantach wielkości próby testowej liczności poszczególnych klas są \textbf{dokładnie identyczne}:
+\begin{itemize}
+    \item Zbiór \texttt{three\_gauss.test.100} (łącznie $300$ próbek): Klasa 1: $100$ ($33.33\%$), Klasa 2: $100$ ($33.33\%$), Klasa 3: $100$ ($33.33\%$).
+    \item Zbiór \texttt{three\_gauss.test.1000} (łącznie $3000$ próbek): Klasa 1: $1000$ ($33.33\%$), Klasa 2: $1000$ ($33.33\%$), Klasa 3: $1000$ ($33.33\%$).
+    \item Zbiór \texttt{three\_gauss.test.10000} (łącznie $30\,000$ próbek): Klasa 1: $10\,000$ ($33.33\%$), Klasa 2: $10\,000$ ($33.33\%$), Klasa 3: $10\,000$ ($33.33\%$).
+\end{itemize}
+Idealny balans klas w zbiorze testowym stanowi kluczowy warunek metodologiczny, który uprawnia do stosowania klasycznej metryki dokładności (\emph{Accuracy}) jako rzetelnego, nieobciążonego wskaźnika jakości predykcji. Wynika to z faktu, że żaden model nie może osiągnąć sztucznie zawyżonej skuteczności poprzez faworyzowanie klasy większościowej, a punktem odniesienia dla predykcji całkowicie losowej jest jednoznacznie wyznaczona wartość $\frac{1}{3} \approx 33.33\%$.
+
+W celu wyeliminowania wpływu losowej inicjalizacji wag (determinizm badań), każdy punkt pomiarowy wyznaczono jako średnią z $3$ niezależnych uruchomień z różnymi ziarnami generatora liczb losowych (\texttt{seed} $\in \{42, 123, 999\}$).
+
+\subsection{Wyniki eksperymentów}
+Poniższe rysunki przedstawiają zarejestrowane charakterystyki uczenia oraz formę wyuczonych reprezentacji:
+\begin{itemize}
+    \item Rysunek~\ref{fig:classification_convergence} ilustruje dynamikę zbieżności dokładności na zbiorze testowym w trakcie pierwszych 20 epok dla trzech rozmiarów zbioru \texttt{three\_gauss}.
+    \item Rysunek~\ref{fig:classification_boundaries} przedstawia granice decyzyjne oraz podział przestrzeni cech wyznaczone przez każdą z funkcji aktywacji na zbiorze $1000$ próbek.
+    \item Rysunek~\ref{fig:regression_convergence} prezentuje krzywe spadku błędu testowego MSE w kolejnych 50 epokach dla zadania regresji \texttt{cube}.
+    \item Rysunek~\ref{fig:regression_fit} obrazuje dopasowanie ciągłej krzywej aproksymującej wyznaczonej przez sieci do punktów testowych.
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{classification_activation_comparison.png}
+    \caption{Dynamika zbieżności dokładności klasyfikacji na zbiorze testowym (\texttt{three\_gauss}) w pierwszych 20 epokach dla próbek o liczności $100$, $1000$ i $10\,000$. Punkty oznaczają wartości uśrednione z 3 losowych ziaren inicjalizacyjnych.}
+    \label{fig:classification_convergence}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{classification_decision_boundaries.png}
+    \caption{Porównanie granic decyzyjnych oraz obszarów klasyfikacji wyznaczonych przez sieci z funkcjami aktywacji \texttt{ReLU}, \texttt{Sigmoid} oraz \texttt{Tanh} na zbiorze testowym \texttt{three\_gauss} ($1000$ próbek).}
+    \label{fig:classification_boundaries}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{regression_activation_comparison.png}
+    \caption{Przebieg błędu testowego MSE w kolejnych 50 epokach dla zadania regresji (\texttt{cube}) przy użyciu funkcji \texttt{ReLU}, \texttt{Sigmoid} i \texttt{Tanh} dla różnych wielkości zbioru danych.}
+    \label{fig:regression_convergence}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\textwidth]{regression_fit_comparison.png}
+    \caption{Wizualizacja dopasowania funkcji aproksymującej wyuczonej przez sieci neuronowe z badanymi funkcjami aktywacji na tle punktów zbioru testowego \texttt{cube} ($1000$ próbek).}
+    \label{fig:regression_fit}
+\end{figure}
+
+\subsection{Opis wyników i dyskusja}
+
+\subsubsection{Analiza wyników dla problemu klasyfikacji}
+Z wykresów zbieżności (Rysunek~\ref{fig:classification_convergence}) oraz map decyzyjnych (Rysunek~\ref{fig:classification_boundaries}) wynikają następujące wnioski:
+\begin{enumerate}
+    \item \textbf{Końcowa skuteczność modeli:} 
+    Ostateczna jakość klasyfikacji dla wszystkich trzech funkcji aktywacji jest niemal identyczna i ustala się na wysokim poziomie $\approx 93.5\%$. Niezależnie od wybranej aktywacji, sieć dysponuje wystarczającą pojemnością, by poprawnie odseparować skupiska.
+    
+    \item \textbf{Dynamika wczesnych epok:} 
+    Wyraźna różnica ujawnia się w pierwszej epoce uczenia. Sieci z aktywacjami \texttt{ReLU} i \texttt{Tanh} już po 1. epoce osiągają dokładność rzędu $92.7\% - 93.4\%$. Z kolei sieć z funkcją \texttt{Sigmoid} startuje zauważalnie wolniej (na zbiorze 100 próbek osiąga w 1. epoce jedynie $\approx 47.3\%$). Jednakże z uwagi na prostą strukturę geometryczną problemu, już 2--3 epoki wystarczają, aby model sigmoidalny skompensował opóźnienie i osiągnął pełną zbieżność.
+    
+    \item \textbf{Morfologia granic decyzyjnych i strefy trójstyku:} 
+    Analiza Rysunku~\ref{fig:classification_boundaries} uwidacznia istotne różnice geometryczne w wyznaczonych obszarach decyzyjnych:
+    \begin{itemize}
+        \item \emph{Wysunięty korytarz decyzyjny (okienko) dla Klasy 3}: W modelach z aktywacjami \texttt{ReLU} i \texttt{Tanh} widoczne jest charakterystyczne, wydłużone pasmo decyzyjne dla klasy 3, wnikające w przestrzeń pomiędzy klasy sąsiednie. W modelu z funkcją \texttt{Sigmoid} pasmo to jest nieobecne, a granica przebiega prosto.
+        \item \emph{Zaokrąglenie w okolicy trójstyku}: W obszarze zbiegu wszystkich trzech klas (tzw. punkcie trójstyku) granice dla funkcji \texttt{Sigmoid} przyjmują formę bardzo łagodnych, eliptycznych i okrągłych łuków, podczas gdy \texttt{ReLU} generuje ostre załamania o charakterze odcinkowo-liniowym.
+    \end{itemize}
+\end{enumerate}
+
+\subsubsection{Analiza wyników dla problemu regresji}
+Z wykresów zbieżności (Rysunek~\ref{fig:regression_convergence}) oraz krzywych dopasowania (Rysunek~\ref{fig:regression_fit}) wynikają następujące wnioski:
+\begin{enumerate}
+    \item \textbf{Szybkość zbieżności i zanikający gradient:}
+    Wszystkie funkcje aktywacji pozwalają na stabilne zmniejszanie błędu średniokwadratowego, jednak dynamika procesu jest skrajnie zróżnicowana:
+    \begin{itemize}
+        \item \texttt{ReLU} osiąga najszybszą zbieżność — błąd testowy gwałtownie spada już w pierwszych epokach, osiągając najniższą ostateczną wartość $\text{MSE}$.
+        \item \texttt{Tanh} wykazuje zrównoważoną, stabilną zbieżność do wartości $\text{MSE}$ do nieco większych wartości.
+        \item \texttt{Sigmoid} zbiega najwolniej i zatrzymuje się na poziomie błędu ponad trzykrotnie wyższym.
+    \end{itemize}
+    Zachowanie to w pełni potwierdza teoretyczną koncepcję zanikającego gradientu . W wielowarstwowej sieci z funkcją sigmoidalną iloczyn kolejnych pochodnych $\sigma' \le 0.25$ sprawia, że gradient błędu propagowany do pierwszej warstwy ulega stłumieniu o rząd wielkości ($0.25^2 \approx 0.0625$). W efekcie wagi początkowych neuronów adaptują się powoli, utrudniając dynamiczną korektę kształtu krzywej.
+
+    \item \textbf{Wpływ liczności zbioru danych na stabilność uczenia:}
+    Porównanie subwykresów na Rysunku~\ref{fig:regression_convergence} pokazuje wyraźny wzrost stabilności wyników wraz ze wzrostem liczby próbek. Dla $N = 100$ trajektorie wykazują wahania zależne od losowości próbkowania i inicjalizacji, natomiast dla $N = 10\,000$ krzywe uczenia są idealnie gładkie i deterministyczne. Duży zbiór danych zapewnia niską wariancję gradientu w mini-batchach, co stabilizuje trajektorię optymalizatora w przestrzeni parametrów.
+
+    \item \textbf{Analiza jakości dopasowania krzywych regresji:}
+    Wizualizacja aproksymacji funkcji sześciennej (Rysunek~\ref{fig:regression_fit}) wyjaśnia przyczynę gorszego wyniku metryki MSE dla funkcji sigmoidalnej. Krzywa wyznaczona przez \texttt{Sigmoid} jest najbardziej spłaszczona i prosta — najgorzej dopasowuje się do skrajnych wartości danych w obszarach dużych modułów $|x|$. Wynika to z faktu, że dla skrajnych wartości wejściowych neurony sigmoidalne wchodzą w stan głębokiego nasycenia (blisko asymptot $0$ lub $1$), gdzie gradient zeruje się, uniemożliwiając wygenerowanie silnego wygięcia nieliniowego. 
+    W przeciwieństwie do niej, funkcja \texttt{ReLU} nie ulega nasyceniu dla dodatnich aktywacji, co pozwala na wierne odtworzenie stromego przebiegu funkcji $y = x^3$ i tłumaczy jej bezapelacyjną przewagę w zadaniach regresji o szerokim zakresie wartości.
+\end{enumerate}
+
+% ============================================================================
+% SEKCJA 4: EKSPERYMENTY - ARCHITEKTURA SIECI
+% ============================================================================
+\section{Eksperyment 2: Wpływ architektury i głębokości sieci}
+\label{sec:exp_architecture}
+
+\subsection{Opis eksperymentu}
+Celem drugiego eksperymentu było zbadanie wpływu głębokości sieci (liczby warstw ukrytych od $0$ do $4$) oraz ich szerokości i profilu geometrycznego na zdolności aproksymacyjne, szybkość zbieżności i jakość generalizacji. Badania przeprowadzono symetrycznie dla zadania klasyfikacji oraz regresji.
+
+\subsubsection{Badane architektury sieci}
+W celu systematycznego zbadania przestrzeni hiperparametrów przetestowano sieci o głębokości od $0$ do $4$ warstw ukrytych, zorganizowane w cztery zróżnicowane wzorce strukturalne (profile szerokości):
+\begin{enumerate}
+    \item \textbf{Small Layers}: stała szerokość $16$ neuronów na każdą warstwę ukrytą.
+    \item \textbf{Big Layers}: stała szerokość $64$ neurony na każdą warstwę ukrytą.
+    \item \textbf{Pyramid (piramida / diament)}: struktura rozszerzająco-zwężająca ($l_i < l_{i+1} > l_{i+2}$), w której liczba neuronów rośnie w środkowych warstwach i ulega redukcji ku warstwie wyjściowej.
+    \item \textbf{Reversed Pyramid (odwrócona piramida / klepsydra)}: struktura zwężająco-rozszerzająca ($l_i > l_{i+1} < l_{i+2}$), posiadająca przewężenie (bottleneck) w centrum sieci i rozszerzająca się ku wyjściu.
+\end{enumerate}
+
+\noindent Wariant z \textbf{0 warstwami ukrytymi} stanowi punkt odniesienia, w którym cechy wejściowe są bezpośrednio połączone z warstwą wyjściową poprzez pojedyncze przekształcenie afiniczne $Y = XW + b$. W problemie regresji odpowiada to klasycznej regresji liniowej, a w klasyfikacji — wielomianowej regresji logistycznej. Z uwagi na brak warstw ukrytych, baseline ten jest identyczny dla wszystkich czterech profili szerokości. Szczegółowe zestawienie testowanych konfiguracji przedstawia Tabela~\ref{tab:architectures}.
+
+\begin{table}[H]
+\centering
+\caption{Zestawienie testowanych architektur sieci w zależności od głębokości i profilu szerokości.}
+\label{tab:architectures}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Wzorzec szerokości} & \textbf{0 warstw} & \textbf{1 warstwa} & \textbf{2 warstwy} & \textbf{3 warstwy} & \textbf{4 warstwy} \\
+\midrule
+\textbf{Small Layers} & $[ \, ]$ & $[16]$ & $[16, 16]$ & $[16, 16, 16]$ & $[16, 16, 16, 16]$ \\
+\textbf{Big Layers} & $[ \, ]$ & $[64]$ & $[64, 64]$ & $[64, 64, 64]$ & $[64, 64, 64, 64]$ \\
+\textbf{Pyramid} & $[ \, ]$ & $[32]$ & $[16, 32]$ & $[16, 64, 16]$ & $[16, 64, 64, 16]$ \\
+\textbf{Reversed Pyramid} & $[ \, ]$ & $[32]$ & $[64, 32]$ & $[64, 16, 64]$ & $[64, 16, 16, 64]$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsubsection{Funkcje aktywacji i parametry optymalizacji}
+We wszystkich badanych sieciach jako stałą funkcję aktywacji w warstwach ukrytych zastosowano \texttt{CustomReLU}.
+\begin{itemize}
+    \item \textbf{Regresja}: wyjście stanowi warstwa \texttt{LinearLayer(in\_dim, 1)} z aktywacją liniową \texttt{Linear} i funkcją kosztu \texttt{MSELoss}. Zastosowano optymalizator \texttt{SGD} z momentum $\gamma = 0.9$ oraz learning rate $\eta = 0.002$ w celu zagwarantowania stabilności numerycznej przy propagacji gradientu przez 4 warstwy macierzowe. Sieci uczono przez $75$ epok, rejestrując błąd testowy co $3$ epoki.
+    \item \textbf{Klasyfikacja}: wyjściowe logity \texttt{LinearLayer(in\_dim, 3)} przekazywane są do funkcji \texttt{SoftmaxCrossEntropyLoss}. Zastosowano optymalizator \texttt{SGD} z parametrami $\eta = 0.01$ oraz $\gamma = 0.9$. Modele trenowano przez $40$ epok z ewaluacją co $2$ epoki.
+\end{itemize}
+
+\subsubsection{Zbiory danych i dobór metryki sukcesu}
+Badania zrealizowano dla trzech wielkości zbioru danych ($100$, $1000$ oraz $10\,000$ próbek):
+\begin{enumerate}
+    \item \textbf{Klasyfikacja}: zbiór \texttt{data.three\_gauss} (dyskryminacja 3 klas w $\mathbb{R}^2$).
+    \item \textbf{Regresja}: zbiór \texttt{data.cube} (aproksymacja silnie nieliniowej funkcji sześciennej).
+\end{enumerate}
+
+\noindent\textbf{Równowaga klas a miarodajność metryki Accuracy:}\\
+Jak szczegółowo wykazano w Sekcji~\ref{sec:exp_activations}, zbiór testowy \texttt{data.three\_gauss} we wszystkich wariantach próby cechuje się idealną równolicznością klas (dokładnie po $33.33\%$ próbek dla każdej z 3 klas). Zgodnie z przeprowadzoną wcześniej dyskusją metodologiczną, symetria ta w pełni uprawnia do stosowania klasycznej dokładności (\emph{Accuracy}) jako całkowicie nieobciążonej i bezpośrednio interpretowalnej miary jakości klasyfikacji, gdzie losowy klasyfikator osiąga dokładnie $\frac{1}{3} \approx 33.33\%$.
+
+Dla problemu regresji metrykę stanowi błąd średniokwadratowy ($\text{MSE}$) mierzony na nieskalowanych wartościach zbioru testowego. Z uwagi na obecność modelu liniowego o bardzo dużym błędzie, wykresy zbieżności regresji przedstawiono w skali logarytmicznej na osi rzędnych. Każdy punkt pomiarowy uśredniono z $3$ niezależnych ziaren generatora liczb losowych (\texttt{seed} $\in \{42, 123, 999\}$).
+
+\subsection{Wyniki eksperymentów}
+Przebiegi zbieżności uczenia dla wszystkich badanych wariantów przedstawiono w ujednoliconych siatkach wykresów o wymiarach $4 \times 3$ (wiersze odpowiadają profilom szerokości, a kolumny wielkościom zbioru danych):
+\begin{itemize}
+    \item Rysunek~\ref{fig:classification_architecture} przedstawia dynamikę dokładności klasyfikacji na zbiorze testowym \texttt{three\_gauss} w kolejnych epokach dla głębokości od $0$ do $4$ warstw.
+    \item Rysunek~\ref{fig:regression_architecture} prezentuje przebieg błędu testowego MSE w skali logarytmicznej w trakcie 75 epok uczenia na zbiorze regresyjnym \texttt{cube}.
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{classification_depth_width_comparison.png}
+    \caption{Wpływ głębokości i szerokości sieci na dynamikę dokładności klasyfikacji (zbiór testowy \texttt{three\_gauss}). Siatka $4 \times 3$ prezentuje profile szerokości w wierszach oraz wielkości zbioru w kolumnach. Każdy wykres zawiera 5 krzywych odpowiadających głębokościom od 0 do 4 warstw ukrytych (średnia z 3 ziaren losowych).}
+    \label{fig:classification_architecture}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{regression_depth_width_comparison.png}
+    \caption{Wpływ głębokości i szerokości sieci na błąd testowy MSE w skali logarytmicznej dla zadania regresji (\texttt{cube}). Prezentacja w siatce $4 \times 3$ obrazuje porównanie modeli o głębokości od 0 do 4 warstw ukrytych na przestrzeni 75 epok (średnia z 3 ziaren losowych).}
+    \label{fig:regression_architecture}
+\end{figure}
+
+\subsection{Opis wyników i dyskusja}
+
+\subsubsection{Analiza wyników dla problemu klasyfikacji}
+Z wykresów zbieżności zaprezentowanych na Rysunku~\ref{fig:classification_architecture} płyną następujące wnioski:
+\begin{enumerate}
+    \item \textbf{Brak zróżnicowania pomiędzy architekturami nieliniowymi:} 
+    Nie obserwujemy zauważalnych różnic w ostatecznej dokładności predykcji dla żadnej z badanych konfiguracji warstw ukrytych. Wszystkie nieliniowe modele — niezależnie od tego, czy posiadają 1, 2, 3 czy 4 warstwy ukryte oraz czy ich szerokość wynosi 16, 64 neurony, czy też tworzą piramidę — osiągają niemal identyczny poziom dokładności testowej oscylujący wokół $\approx 93.5\%$.
+    
+    \item \textbf{Przyczyna: niska złożoność geometryczna problemu:} 
+    Uzyskane rezultaty jednoznacznie sugerują, że zbiór danych \texttt{three\_gauss} jest stosunkowo prosty pod względem separowalności. Chmury punktów posiadają nieskomplikowaną strukturę przestrzenną w $\mathbb{R}^2$, przez co już dowolna, najprostsza sieć nieliniowa (1 warstwa, 16 neuronów) od razu i bez trudu wykrywa wszystkie kluczowe zależności oraz wyznacza optymalne granice decyzyjne. Dodatkowe warstwy i neurony stanowią nadmiarową pojemność reprezentacyjną, która w tym zadaniu nie przynosi zysku, gdyż osiągnięto teoretyczny błąd Bayesa wynikający z fizycznego nakładania się rozkładów gaussowskich.
+
+\end{enumerate}
+
+\subsubsection{Analiza wyników dla problemu regresji}
+W przeciwieństwie do klasyfikacji, w zadaniu regresji funkcyjnej \texttt{cube} (Rysunek~\ref{fig:regression_architecture}) wpływ architektury ujawnia fundamentalne zależności teoretyczne:
+\begin{enumerate}
+    \item \textbf{Całkowity brak możliwości skutecznej predykcji dla 0 warstw ukrytych:} 
+    Model pozbawiony warstw ukrytych nie jest w stanie robić skuteczną predykcje — jego błąd testowy MSE utrzymuje się na stałym, wysokim poziomie. Jest to związane z tym , że pojedyncza warstwa liniowa bez aktywacji nieliniowych realizuje funkcję afiniczną $y = ax + b$. Nie istnieje kombinacja współczynników $a$ i $b$, która byłaby w stanie zaimitować przebieg funkcji sześciennej $y \propto x^3$ o silnej, nieliniowej krzywiźnie.
+
+    \item \textbf{Efekt dodania pierwszej warstwy ukrytej:} 
+    Dołożenie jednej warstwy ukrytej z nieliniowością ReLU poprawia zachowanie sieci, znacznie redukując błąd testowy MSE. Nieliniowa funkcja aktywacji pozwala na łamanie przestrzeni i aproksymację krzywej za pomocą odcinkowo-liniowych segmentów.
+
+    \item \textbf{Wzorzec wpływu głębokości:} 
+    Na wszystkich wykresach wyraźnie widoczny jest spójny wzorzec: zwiększanie liczby warstw ukrytych systematycznie poprawia jakość predykcji i obniża ostateczny błąd MSE. Równocześnie obserwujemy jednak klasyczne prawo malejących przychodów — im więcej warstw ma sieć tym mniejszą poprawe widzimy dokładając nowe warstwy.
+
+    \item \textbf{Wpływ szerokości i liczności neuronów:} 
+    Porównanie poszczególnych wierszy siatki (Small Layers, Big Layers, Pyramid, Reversed Pyramid) wskazuje, że profil szerokości warstw nie wywiera dominującego wpływu na końcową jakość aproksymacji. Nawet wariant wąski (16 neuronów) dostarcza dostatecznej liczby węzłów zgięcia dla funkcji $R \xrightarrow{} R$.
+\end{enumerate}
+
+% ============================================================================
+% SEKCJA 5: EKSPERYMENTY - FUNKCJE STRATY
+% ============================================================================
+\section{Eksperyment 3: Wpływ miary błędu na wyjściu}
+\label{sec:exp_loss_functions}
+
+\subsection{Opis eksperymentu}
+Celem trzeciego eksperymentu było zbadanie wpływu wyboru funkcji straty na proces uczenia, dynamikę adaptacji wag oraz jakość predykcji sieci neuronowej. Badania zrealizowano porównawczo dla problemu regresji oraz klasyfikacji:
+\begin{itemize}
+    \item \textbf{Dla zadania regresji}: porównano klasyczny błąd średniokwadratowy (\texttt{MSELoss}) z błędem bezwzględnym (\texttt{MAELoss}).
+    \item \textbf{Dla zadania klasyfikacji}: porównano binarną entropię krzyżową (\texttt{BinaryCrossEntropyLoss}) z uogólnioną entropią krzyżową z funkcją Softmax (\texttt{SoftmaxCrossEntropyLoss}).
+\end{itemize}
+
+\subsubsection{Architektury sieci i hiperparametry optymalizacji}
+Dla wyeliminowania zakłóceń wynikających ze zróżnicowania pojemności modeli, w obu zadaniach zastosowano stałą, dwuwarstwową strukturę bazową z funkcją aktywacji \texttt{CustomReLU} w warstwach ukrytych:
+\begin{itemize}
+    \item \textbf{Regresja}:
+    \begin{itemize}
+        \item Architektura: wejście 1 cecha $\to$ warstwa ukryta 32 neurony $\to$ warstwa ukryta 32 neurony $\to$ wyjście 1 neuron.
+        \item Funkcja aktywacji na wyjściu: tożsamościowa funkcja liniowa \texttt{Linear}.
+        \item Optymalizator: \texttt{SGD} z momentum $\gamma = 0.9$ oraz współczynnikiem uczenia $\eta = 0.002$.
+        \item Liczba epok: $40$ epok.
+        \item Zbiór danych: \texttt{data.cube} ($1000$ próbek).
+    \end{itemize}
+    \item \textbf{Klasyfikacja}:
+    \begin{itemize}
+        \item Architektura warstw ukrytych: wejście 2 cechy $\to$ warstwa ukryta 32 neurony $\to$ warstwa ukryta 32 neurony $\to$ wyjście.
+        \item Wariant \texttt{BinaryCrossEntropyLoss} (BCE): $1$ neuron wyjściowy z nieliniowością \texttt{Sigmoid}, kodujący prawdopodobieństwo $p \in [0, 1]$ przynależności do klasy, z etykietami $y \in \{0, 1\}$.
+        \item Wariant \texttt{SoftmaxCrossEntropyLoss} (SoftmaxCE): $2$ neurony wyjściowe bez jawnej aktywacji (surowe logity), z etykietami zakodowanymi w postaci wektorów one-hot w przestrzeni $\mathbb{R}^2$.
+        \item Optymalizator: \texttt{SGD} z momentum $\gamma = 0.9$ oraz współczynnikiem uczenia $\eta = 0.01$.
+        \item Liczba epok: $20$ epok.
+        \item Zbiór danych: \texttt{data.simple} ($1000$ próbek, 2 klasy).
+    \end{itemize}
+\end{itemize}
+
+\subsubsection{Rejestrowane wielkości i metryki sukcesu}
+W trakcie procesu treningowego w każdej epoce rejestrowano następujące parametry:
+\begin{enumerate}
+    \item \textbf{Jakość predykcji na zbiorze testowym}:
+    \begin{itemize}
+        \item \emph{Dla klasyfikacji}: dokładność klasyfikacji (\emph{Accuracy}), czyli procent poprawnie zaklasyfikowanych próbek testowych.
+        \item \emph{Dla regresji}: w celu uniknięcia faworyzowania modelu optymalizującego tożsamą miarę celu, dla obu modeli (uczonego z MSE oraz z MAE) rejestrowano równolegle \textbf{zarówno testowy błąd MSE, jak i testowy błąd MAE} w przestrzeni nieskalowanych wartości zmiennej objaśnianej.
+    \end{itemize}
+    \item \textbf{Wielkość kroku aktualizacji wag (odnowienie wag)}:
+    Dla każdej epoki $t \ge 1$ wyznaczano euklidesową normę różnicy wszystkich parametrów sieci (wag i biasów) względem epoki poprzedniej:
+    \begin{equation}
+        \|\Delta \mathbf{W}_t\|_F = \|\mathbf{\theta}_t - \mathbf{\theta}_{t-1}\|_2 = \sqrt{\sum_{p \in \text{parametry}} \|p_t - p_{t-1}\|_2^2},
+    \end{equation}
+    co pozwala precyzyjnie monitorować agresywność i skalę przemieszczania się wag w przestrzeni konfiguracyjnej.
+\end{enumerate}
+
+\noindent\textbf{Równoliczność klas w zbiorze \texttt{data.simple}:}\\
+Weryfikacja struktury zbioru testowego \texttt{data.simple} wykazała, że próba $1000$ punktów cechuje się niemal doskonałą równowagą: klasa 1 stanowi $508$ próbek ($50.8\%$), natomiast klasa 2 to $492$ próbki ($49.2\%$). Zgodnie ze szczegółową dyskusją metodologiczną przeprowadzoną w Sekcji~\ref{sec:exp_activations}, taki symetryczny rozkład klas uprawnia do stosowania klasycznej metryki \emph{Accuracy} jako w pełni obiektywnej i niemającej obciążenia miary jakości klasyfikacji, gdzie losowa predykcja daje $\approx 50\%$.
+
+Wszystkie przebiegi wyznaczono jako średnią z $3$ niezależnych ziaren losowych (\texttt{seed} $\in \{42, 123, 999\}$).
+
+\subsection{Wyniki eksperymentów}
+Poniższe rysunki przedstawiają wyniki przeprowadzonych badań:
+\begin{itemize}
+    \item Rysunek~\ref{fig:loss_classification_accuracy} przedstawia dynamikę dokładności testowej dla modeli klasyfikacyjnych uczonych z użyciem BCE oraz SoftmaxCE.
+    \item Rysunek~\ref{fig:loss_classification_weights} prezentuje wielkość kroku aktualizacji wag $\|\Delta \mathbf{W}\|$ w kolejnych epokach dla obu klasyfikatorów.
+    \item Rysunek~\ref{fig:loss_regression_metrics} przedstawia błędy testowe MSE i MAE dla modeli regresyjnych zoptymalizowanych funkcją MSE oraz MAE.
+    \item Rysunek~\ref{fig:loss_regression_weights} prezentuje wielkość kroku aktualizacji wag $\|\Delta \mathbf{W}\|$ w kolejnych epokach dla obu modeli regresyjnych.
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{classification_test_accuracy.png}
+    \caption{Dokładność klasyfikacji na zbiorze testowym (\texttt{data.simple}) dla modeli uczonych przy użyciu binarnej entropii krzyżowej (BCE) oraz Softmax Cross-Entropy.}
+    \label{fig:loss_classification_accuracy}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{classification_weight_updates.png}
+    \caption{Wielkość kroku aktualizacji wag $\|\Delta \mathbf{W}\|$ w kolejnych epokach dla modeli klasyfikacji uczonych z funkcjami strat BCE i SoftmaxCE.}
+    \label{fig:loss_classification_weights}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{regression_test_metrics.png}
+    \caption{Ewolucja błędu testowego MSE (lewa oś) oraz MAE (prawa oś) w trakcie 40 epok uczenia dla sieci regresyjnych optymalizowanych funkcją MSE oraz funkcją MAE (zbiór \texttt{data.cube}).}
+    \label{fig:loss_regression_metrics}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{regression_weight_updates.png}
+    \caption{Wielkość kroku aktualizacji wag $\|\Delta \mathbf{W}\|$ w kolejnych epokach dla modeli regresyjnych optymalizowanych funkcją MSE oraz funkcją MAE.}
+    \label{fig:loss_regression_weights}
+\end{figure}
+
+\subsection{Opis wyników i dyskusja}
+
+\subsubsection{Analiza wyników dla problemu klasyfikacji}
+Zestawienie charakterystyk na Rysunkach~\ref{fig:loss_classification_accuracy} i~\ref{fig:loss_classification_weights} prowadzi do wniosków:
+\begin{enumerate}
+    \item \textbf{Brak różnic w jakości predykcji:} 
+    Krzywe dokładności na zbiorze testowym dla modelu z binarną entropią krzyżową (BCE) oraz modelu z uogólnioną entropią krzyżową (SoftmaxCE) są praktycznie nie do odróżnienia. W obu wariantach sieć niemal natychmiastowo zbiega do ostatecznej skuteczności, bez jakichkolwiek widocznych rozbieżności.
+    
+    \item \textbf{Dynamika kroków aktualizacji wag:} 
+    Profile zmian normy kroku wag $\|\Delta \mathbf{W}\|$ również wykazują symetrię. W obu modelach krok wag w początkowej epoce jest większy, po czym stabilnie i monotonicznie wygasza się do wartości bliskich zera, co świadczy o szybkim odnalezieniu optymalnych wag separujących.
+    
+    \item \textbf{Uzasadnienie teoretyczne:} 
+    Brak obserwowalnych różnic jest w pełni zgodny z teorią. Dla problemu binarnego dwuklasowy model Softmax jest tożsamy z jednowyjściowym modelem logistycznym z aktywacją sigmoidalną — Softmax reprezentuje jedynie nadmiarową reparametryzację tej samej dystrybucji prawdopodobieństwa. Obie funkcje straty minimalizują ten sam logarytm wiarygodności, co prowadzi do równoważnych kierunków optymalizacji gradientowej.
+\end{enumerate}
+
+\subsubsection{Analiza wyników dla problemu regresji}
+W przypadku problemu regresji funkcyjnej \texttt{cube} z porównania modeli wynikają następne wnioski:
+\begin{enumerate}
+    \item \textbf{Jakość predykcji na zbiorze testowym:} 
+    Jak widać na Rysunku~\ref{fig:loss_regression_metrics}, wykresy jakości predykcji wyglądają niemal identycznie bez względu na to, jakiej funkcji straty użyliśmy do treningu. Zarówno model optymalizowany błędem średniokwadratowym (MSE), jak i model optymalizowany błędem bezwzględnym (MAE), osiągają bardzo zbliżony ostateczny poziom błędu testowego MSE oraz MAE. Jedyną subtelną różnicą jest tempo zbieżności we wczesnej fazie: sieć trenowana przy użyciu MSE zbiega minimalnie szybciej w pierwszych epokach, po czym obie krzywe osiągają analogiczne wypłaszczenie.
+
+    \item \textbf{Dynamika i natura kroków aktualizacji wag:} 
+    Zasadnicza różnica pomiędzy funkcjami ujawnia się na wykresie wielkości kroku wagowego $\|\Delta \mathbf{W}\|$ (Rysunek~\ref{fig:loss_regression_weights}):
+    \begin{itemize}
+        \item \emph{Model trenowany z MSE}: debiutuje z wyraźnie większego kroku w pierwszej epoce, po czym jego krok gwałtownie maleje i w kolejnych epokach staje się zauważalnie mniejszy niż w modelu MAE.
+        \item \emph{Model trenowany z MAE}: w pierwszej epoce wykonuje mniejszy krok, jednak w kolejnych epokach utrzymuje większe wartości kroku niż model MSE.
+    \end{itemize}
+
+    \item \textbf{Wyjaśnienie matematyczne — natura gradientu MSE vs MAE:} 
+    Zaobserwowane zjawisko idealnie odzwierciedla analityczną postać pochodnych obu funkcji kosztu:
+    \begin{itemize}
+        \item Gradient błędu średniokwadratowego jest wprost proporcjonalny do reszty predykcji:
+        \begin{equation}
+            \nabla_W \mathcal{L}_{\text{MSE}} = \frac{2}{N} \sum_{i=1}^N (\hat{y}_i - y_i) \cdot \frac{\partial \hat{y}_i}{\partial W}.
+        \end{equation}
+        Gdy sieć startuje z losowych wag, błędy resztowe $(\hat{y} - y)$ są duże, co generuje agresywny, potężny gradient i skutkuje bardzo dużym początkowym skokiem parametrów. Kiedy jednak sieć zbliża się do minimum i błędy stają się małe, czynnik $(\hat{y} - y)$ zbliża się do zera, naturalnie wygaszając gradient do mikroskopijnych wartości.
+        
+        \item Gradient błędu bezwzględnego zależy wyłącznie od znaku reszty, a nie od jej wielkości:
+        \begin{equation}
+            \nabla_W \mathcal{L}_{\text{MAE}} = \frac{1}{N} \sum_{i=1}^N \text{sgn}(\hat{y}_i - y_i) \cdot \frac{\partial \hat{y}_i}{\partial W}.
+        \end{equation}
+        W pierwszej epoce, mimo olbrzymiego błędu, składowa $\text{sgn}(\hat{y} - y) = \pm 1$ nie rośnie wraz z odległością od celu, co chroni sieć przed zbyt gwałtownym skokiem (krok początkowy jest mniejszy niż w MSE). Z kolei w późniejszych epokach, gdy model znajduje się już blisko optimum, funkcja MAE wciąż generuje gradient o stałym module jednostkowym. W efekcie krok aktualizacji wag nie ulega tak mocnemu wytłumieniu i pozostaje większy niż w MSE, wykazując drobne fluktuacje wokół lokalnego minimum.
+    \end{itemize}
+\end{enumerate}
+
+% ============================================================================
+% SEKCJA 6: PODSUMOWANIE I WNIOSKI
+% ============================================================================
+\section{Podsumowanie i wnioski ogólne}
+\label{sec:summary}
+
+W ramach projektu zrealizowano od podstaw pełną implementację sieci typu perceptron wielowarstwowy (MLP) w języku Python z użyciem biblioteki \texttt{numpy}. Przeprowadzone serie eksperymentów pozwoliły na sformułowanie następujących kluczowych wniosków:
+
+\begin{enumerate}
+    \item \textbf{Implementacja silnika obliczeniowego:} 
+    Zaimplementowany modułowy mechanizm propagacji wstecznej, wektoryzacji operacji macierzowych oraz optymalizatora SGD z momentum działa stabilnie i poprawnie minimalizuje funkcje celu zarówno w zadaniach klasyfikacji wieloklasowej, jak i nieliniowej regresji.
+
+    \item \textbf{Wpływ funkcji aktywacji:} 
+    Wybór funkcji aktywacji odgrywa kluczową rolę w zadaniach regresji — \texttt{ReLU} zdecydowanie przewyższa funkcję \texttt{Sigmoid}, która ze względu na zjawisko zanikającego gradientu oraz nasycanie neuronów osiąga znacznie gorszą aproksymację. W zadaniu klasyfikacji o prostej strukturze przestrzennej wszystkie funkcje osiągają porównywalną skuteczność końcową, różniąc się jedynie morfologią granic decyzyjnych w rejonach punktów trójstyku.
+
+    \item \textbf{Wpływ głębokości i geometrii architektury:} 
+    Model pozbawiony warstw ukrytych (0 warstw) nie jest w stanie aproksymować nieliniowości. Dodanie pierwszej warstwy ukrytej przynosi fundamentalną poprawę zdolności predykcyjnych. Zwiększanie głębokości sieci (do 4 warstw) podlega prawu malejących przychodów — każda kolejna warstwa przynosi coraz mniejszy zysk jakościowy. Sam profil szerokości (warstwy wąskie, szerokie, piramida) ma charakter drugorzędny względem samej obecności nieliniowych przekształceń.
+
+    \item \textbf{Wpływ funkcji straty:} 
+    Dla dwuklasowej klasyfikacji wybór pomiędzy binarną entropią krzyżową (BCE) a Softmax Cross-Entropy nie wpływa na wyniki — oba podejścia są matematycznie i numerycznie równoważne. W zadaniu regresji funkcje MSE i MAE prowadzą do zbliżonej końcowej jakości predykcji, lecz diametralnie różnią się dynamiką kroków aktualizacji wag: gradient MSE jest silnie zależny od skali błędu (agresywny start, szybkie wygaszenie przy zbieżności), natomiast gradient MAE zachowuje stały moduł jednostkowy (spokojniejszy start, lecz większe kroki w pobliżu minimum).
+\end{enumerate}
+
+\end{document}
