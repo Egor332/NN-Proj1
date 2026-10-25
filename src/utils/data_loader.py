@@ -97,3 +97,63 @@ def load_dataset(
         return X, y
     else:
         raise ValueError(f"Unknown problem type: {problem}")
+
+def load_mnist(
+    split: str = "train",
+    normalize: bool = True,
+    flatten: bool = True,
+    max_samples: int | None = None
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Loads the MNIST handwritten digits dataset.
+    Downloads and caches mnist.npz in project root 'data/' directory if not present.
+
+    Args:
+        split: 'train' (60,000 samples) or 'test' (10,000 samples).
+        normalize: If True, scales pixel values from [0, 255] to [0.0, 1.0].
+        flatten: If True, flattens (N, 28, 28) images to (N, 784).
+        max_samples: Optional limit on the number of samples to return.
+
+    Returns:
+        X: np.ndarray of shape (N, 784) if flatten else (N, 28, 28).
+        y: np.ndarray of integer digit labels (0-9) of shape (N,).
+    """
+    import urllib.request
+
+    cache_dir = PROJECT_ROOT / "data"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    npz_path = cache_dir / "mnist.npz"
+
+    if not npz_path.exists():
+        url = "https://storage.googleapis.com/tensorflow/tf-keras-datasets/mnist.npz"
+        print(f"Downloading MNIST dataset to {npz_path}...")
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req) as resp, open(npz_path, "wb") as out_file:
+            out_file.write(resp.read())
+        print("Download complete.")
+
+    data = np.load(npz_path)
+    if split.lower() == "train":
+        X = data["x_train"]
+        y = data["y_train"]
+    elif split.lower() == "test":
+        X = data["x_test"]
+        y = data["y_test"]
+    else:
+        raise ValueError(f"Unknown split: {split}. Expected 'train' or 'test'.")
+
+    if max_samples is not None:
+        X = X[:max_samples]
+        y = y[:max_samples]
+
+    if flatten:
+        X = X.reshape(X.shape[0], -1)
+
+    if normalize:
+        X = X.astype(np.float32) / 255.0
+    else:
+        X = X.astype(np.float32)
+
+    y = y.astype(int)
+    return X, y
+

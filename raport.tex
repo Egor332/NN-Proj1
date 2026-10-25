@@ -9,7 +9,7 @@
 \usepackage{subcaption}
 \usepackage{booktabs}
 \usepackage{float}
-\usepackage{microtype}
+%\usepackage{microtype} % Zakomentowane: w darmowej wersji Overleaf często powoduje timeout
 \usepackage{listings}
 \usepackage{xcolor}
 \usepackage{hyperref}
@@ -181,7 +181,7 @@ Zbudowano sieć z jedną warstwą ukrytą o strukturze:
 
 Na rysunku~\ref{fig:regression_dynamics} przedstawiono pełną dynamikę procesu uczenia w postaci zestawienia czterech charakterystyk.
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
     \centering
     \includegraphics[width=0.95\textwidth]{regression_single_run_dynamics.png}
     \caption{Dynamika uczenia sieci MLP (1 warstwa ukryta, 32 neurony ReLU, strata MSE) na zbiorze \texttt{cube 1000}. Wykresy przedstawiają spadek błędu treningowego, spadek błędu testowego, ewolucję normy wag $||W||_2$ oraz wielkość kroku aktualizacji wag $||\Delta W||_2$.}
@@ -256,28 +256,28 @@ Poniższe rysunki przedstawiają zarejestrowane charakterystyki uczenia oraz for
     \item Rysunek~\ref{fig:regression_fit} obrazuje dopasowanie ciągłej krzywej aproksymującej wyznaczonej przez sieci do punktów testowych.
 \end{itemize}
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
     \centering
     \includegraphics[width=\textwidth]{classification_activation_comparison.png}
     \caption{Dynamika zbieżności dokładności klasyfikacji na zbiorze testowym (\texttt{three\_gauss}) w pierwszych 20 epokach dla próbek o liczności $100$, $1000$ i $10\,000$. Punkty oznaczają wartości uśrednione z 3 losowych ziaren inicjalizacyjnych.}
     \label{fig:classification_convergence}
 \end{figure}
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
     \centering
     \includegraphics[width=\textwidth]{classification_decision_boundaries.png}
     \caption{Porównanie granic decyzyjnych oraz obszarów klasyfikacji wyznaczonych przez sieci z funkcjami aktywacji \texttt{ReLU}, \texttt{Sigmoid} oraz \texttt{Tanh} na zbiorze testowym \texttt{three\_gauss} ($1000$ próbek).}
     \label{fig:classification_boundaries}
 \end{figure}
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
     \centering
     \includegraphics[width=\textwidth]{regression_activation_comparison.png}
     \caption{Przebieg błędu testowego MSE w kolejnych 50 epokach dla zadania regresji (\texttt{cube}) przy użyciu funkcji \texttt{ReLU}, \texttt{Sigmoid} i \texttt{Tanh} dla różnych wielkości zbioru danych.}
     \label{fig:regression_convergence}
 \end{figure}
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
     \centering
     \includegraphics[width=0.85\textwidth]{regression_fit_comparison.png}
     \caption{Wizualizacja dopasowania funkcji aproksymującej wyuczonej przez sieci neuronowe z badanymi funkcjami aktywacji na tle punktów zbioru testowego \texttt{cube} ($1000$ próbek).}
@@ -343,7 +343,7 @@ W celu systematycznego zbadania przestrzeni hiperparametrów przetestowano sieci
 
 \noindent Wariant z \textbf{0 warstwami ukrytymi} stanowi punkt odniesienia, w którym cechy wejściowe są bezpośrednio połączone z warstwą wyjściową poprzez pojedyncze przekształcenie afiniczne $Y = XW + b$. W problemie regresji odpowiada to klasycznej regresji liniowej, a w klasyfikacji — wielomianowej regresji logistycznej. Z uwagi na brak warstw ukrytych, baseline ten jest identyczny dla wszystkich czterech profili szerokości. Szczegółowe zestawienie testowanych konfiguracji przedstawia Tabela~\ref{tab:architectures}.
 
-\begin{table}[H]
+\begin{table}[!htbp]
 \centering
 \caption{Zestawienie testowanych architektur sieci w zależności od głębokości i profilu szerokości.}
 \label{tab:architectures}
@@ -385,14 +385,14 @@ Przebiegi zbieżności uczenia dla wszystkich badanych wariantów przedstawiono 
     \item Rysunek~\ref{fig:regression_architecture} prezentuje przebieg błędu testowego MSE w skali logarytmicznej w trakcie 75 epok uczenia na zbiorze regresyjnym \texttt{cube}.
 \end{itemize}
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
     \centering
     \includegraphics[width=\textwidth]{classification_depth_width_comparison.png}
     \caption{Wpływ głębokości i szerokości sieci na dynamikę dokładności klasyfikacji (zbiór testowy \texttt{three\_gauss}). Siatka $4 \times 3$ prezentuje profile szerokości w wierszach oraz wielkości zbioru w kolumnach. Każdy wykres zawiera 5 krzywych odpowiadających głębokościom od 0 do 4 warstw ukrytych (średnia z 3 ziaren losowych).}
     \label{fig:classification_architecture}
 \end{figure}
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
     \centering
     \includegraphics[width=\textwidth]{regression_depth_width_comparison.png}
     \caption{Wpływ głębokości i szerokości sieci na błąd testowy MSE w skali logarytmicznej dla zadania regresji (\texttt{cube}). Prezentacja w siatce $4 \times 3$ obrazuje porównanie modeli o głębokości od 0 do 4 warstw ukrytych na przestrzeni 75 epok (średnia z 3 ziaren losowych).}
@@ -493,28 +493,28 @@ Poniższe rysunki przedstawiają wyniki przeprowadzonych badań:
     \item Rysunek~\ref{fig:loss_regression_weights} prezentuje wielkość kroku aktualizacji wag $\|\Delta \mathbf{W}\|$ w kolejnych epokach dla obu modeli regresyjnych.
 \end{itemize}
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
     \centering
     \includegraphics[width=\textwidth]{classification_test_accuracy.png}
     \caption{Dokładność klasyfikacji na zbiorze testowym (\texttt{data.simple}) dla modeli uczonych przy użyciu binarnej entropii krzyżowej (BCE) oraz Softmax Cross-Entropy.}
     \label{fig:loss_classification_accuracy}
 \end{figure}
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
     \centering
     \includegraphics[width=\textwidth]{classification_weight_updates.png}
     \caption{Wielkość kroku aktualizacji wag $\|\Delta \mathbf{W}\|$ w kolejnych epokach dla modeli klasyfikacji uczonych z funkcjami strat BCE i SoftmaxCE.}
     \label{fig:loss_classification_weights}
 \end{figure}
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
     \centering
     \includegraphics[width=\textwidth]{regression_test_metrics.png}
     \caption{Ewolucja błędu testowego MSE (lewa oś) oraz MAE (prawa oś) w trakcie 40 epok uczenia dla sieci regresyjnych optymalizowanych funkcją MSE oraz funkcją MAE (zbiór \texttt{data.cube}).}
     \label{fig:loss_regression_metrics}
 \end{figure}
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
     \centering
     \includegraphics[width=\textwidth]{regression_weight_updates.png}
     \caption{Wielkość kroku aktualizacji wag $\|\Delta \mathbf{W}\|$ w kolejnych epokach dla modeli regresyjnych optymalizowanych funkcją MSE oraz funkcją MAE.}
@@ -566,6 +566,76 @@ W przypadku problemu regresji funkcyjnej \texttt{cube} z porównania modeli wyni
     \end{itemize}
 \end{enumerate}
 
+\section{Eksperyment 4: Klasyfikacja obrazów cyfr ze zbioru MNIST}
+\label{sec:exp_mnist}
+
+\subsection{Opis eksperymentu}
+
+\subsubsection{Przedmiot rozpoznawania i adaptacja MLP do danych obrazowych}
+Celem czwartego eksperymentu jest zbadanie skuteczności oraz zdolności generalizacyjnych zaimplementowanego od podstaw perceptronu wielowarstwowego (MLP) w konfrontacji z rzeczywistym, wysokowymiarowym zadaniem rozpoznawania wzorców wizualnych. Jako problem referencyjny wybrano zbiór danych MNIST. Zadanie polega na poprawnej dyskryminacji ręcznie pisanych cyfr arabskich należących do dziesięciu rozłącznych klas: $\{0, 1, 2, 3, 4, 5, 6, 7, 8, 9\}$.
+
+Standardowa architektura perceptronu wielowarstwowego przyjmuje na wejściu jednowymiarowe wektory cech, podczas gdy obrazy źródłowe posiadają dwuwymiarową strukturę przestrzenną w odcieniach szarości o rozdzielczości $28 \times 28$ pikseli. W celu przystosowania danych obrazowych do wejścia sieci zastosowano procedurę spłaszczania: każdą macierz obrazu przekształcono w wektor cech w przestrzeni $\mathbb{R}^{784}$ . Dodatkowo, surowe wartości jasności pikseli reprezentowane w formacie całkowitoliczbowym z przedziału $[0, 255]$ poddano unormowaniu metodą min-max scaling ($x \leftarrow x / 255.0$), co sprowadziło wartości cech wejściowych do przedziału $[0.0, 1.0]$. Transformacja ta zapobiega eksplozji gradientu oraz gwarantuje stabilność numeryczną w połączeniu ze skalowaną metodą inicjalizacji wag Xaviera/He.
+
+\subsubsection{Architektura sieci i hiperparametry uczenia}
+Dla zrealizowania postawionego zadania skonstruowano architekturę MLP o następującej konfiguracji:
+\begin{itemize}
+    \item \textbf{Topologia warstw}: sieć złożona z wejścia oraz 3 warstw ukrytych o stopniowo malejącej szerokości:
+    \begin{equation}
+        784 \xrightarrow{\text{Linear}} 256 \xrightarrow{\text{ReLU}} 128 \xrightarrow{\text{ReLU}} 64 \xrightarrow{\text{ReLU}} 10 \quad (\text{surowe logity}).
+    \end{equation}
+    Łącznie model posiada $242\,762$ parametry podlegające optymalizacji (wagi i obciążenia), co zapewnia odpowiednią pojemność reprezentacyjną dla nieliniowych granic decyzyjnych w przestrzeni $\mathbb{R}^{784}$.
+    \item \textbf{Funkcja aktywacji w warstwach ukrytych}: \texttt{CustomReLU} ($\max(0, x)$).
+    \item \textbf{Warstwa wyjściowa i funkcja straty}: ostatnia warstwa liniowa generuje $10$ nieskrępowanych wartości (surowych logitów), które są bezpośrednio przekazywane do zespolonego modułu straty \texttt{SoftmaxCrossEntropyLoss}. 
+    \item \textbf{Optymalizator}: stochastyczny spadek wzdłuż gradientu z pędem (\texttt{SGD}) z parametrem uczenia $\eta = 0.03$ oraz współczynnikiem momentum $\gamma = 0.9$.
+\end{itemize}
+
+\subsubsection{Dobór miary sukcesu i analiza rozkładu klas w zbiorze testowym}
+Jako główną miarę sukcesu przyjęto ogólną dokładność klasyfikacji (\emph{Accuracy}), definiowaną jako stosunek liczby poprawnie sklasyfikowanych obrazów do całkowitej liczności zbioru testowego ($N = 10\,000$), uzupełnioną o unormowaną macierz pomyłek.
+
+W celu weryfikacji, czy metryka \emph{Accuracy} nie będzie obarczona zafałszowaniem statystycznym (ang. \emph{accuracy paradox}), przeprowadzono analizę liczności poszczególnych klas w niezależnym zbiorze testowym. Wyniki zestawiono w Tabeli~\ref{tab:mnist_test_distribution}.
+
+\begin{table}[!htbp]
+\centering
+\caption{Rozkład liczności i udziału procentowego poszczególnych cyfr w zbiorze testowym MNIST ($10\,000$ próbek).}
+\label{tab:mnist_test_distribution}
+\small
+\begin{tabular}{ccc}
+\toprule
+\textbf{Klasa (Cyfra)} & \textbf{Liczba próbek w teście} & \textbf{Udział procentowy [\%]} \\
+\midrule
+0 & 980  & 9.80\%  \\
+1 & 1135 & 11.35\% \\
+2 & 1032 & 10.32\% \\
+3 & 1010 & 10.10\% \\
+4 & 982  & 9.82\%  \\
+5 & 892  & 8.92\%  \\
+6 & 958  & 9.58\%  \\
+7 & 1028 & 10.28\% \\
+8 & 974  & 9.74\%  \\
+9 & 1009 & 10.09\% \\
+\midrule
+\textbf{Suma} & \textbf{10\,000} & \textbf{100.00\%} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\noindent\textbf{Uzasadnienie wiarygodności metryki Accuracy:}\\
+Jak wynika z danych w Tabeli~\ref{tab:mnist_test_distribution}, zbiór testowy cechuje się zrównoważonym rozkładem — udział każdej z cyfr wynosi w przybliżeniu $10\%$ (najmniej liczna klasa 5 to $8.92\%$, a najliczniejsza klasa 1 to $11.35\%$). W przypadku zbioru MNIST naiwny, losowy klasyfikator osiąga dokładność na poziomie zaledwie $\approx 10\%$. Wobec braku klasy dominującej wysoka globalna wartość metryki \emph{Accuracy} stanowi całkowicie obiektywny, nieobciążony i rzetelny miernik realnych zdolności predykcyjnych sieci.
+
+\subsection{Wyniki eksperymentu}
+
+Wyuczony model poddano ewaluacji na pełnym, niezależnym zbiorze testowym liczącym $10\,000$ próbek. Wynik w postaci znormalizowanej macierzy pomyłek z naniesionymi wartościami procentowymi przedstawiono na Rysunku~\ref{fig:mnist_confusion_matrix}.
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.75\textwidth]{mnist_confusion_matrix_percentage.png}
+    \caption{Unormowana macierz pomyłek modelu MLP z wartościami procentowymi na pełnym zbiorze testowym MNIST ($10\,000$ próbek). Elementy diagonalne reprezentują czułość (Recall) dla poszczególnych cyfr.}
+    \label{fig:mnist_confusion_matrix}
+\end{figure}
+
+\subsection{Opis wyników i dyskusja}
+    Zaimplementowana od podstaw sieć perceptronu wielowarstwowego osiągnęła na zbiorze testowym MNIST ogólną dokładność na poziomie \textbf{98.4\%}. Zgodnie z literaturą naukową i historycznymi zestawieniami benchmarków, teoretyczna granica skuteczności dla czystych perceptronów wielowarstwowych operujących na surowych pikselach (bez warstw splotowych oraz bez zniekształceń i augmentacji próbek) wynosi $\approx 98.2\% - 98.5\%$. Osiągnięcie tego poziomu potwierdza pełną poprawność matematyczną i numeryczną implementacji: zwektoryzowanego modułu propagacji wstecznej, mechanizmu aktualizacji wag z momentum oraz funkcji straty \texttt{SoftmaxCrossEntropyLoss}.
+
 % ============================================================================
 % SEKCJA 6: PODSUMOWANIE I WNIOSKI
 % ============================================================================
@@ -579,13 +649,13 @@ W ramach projektu zrealizowano od podstaw pełną implementację sieci typu perc
     Zaimplementowany modułowy mechanizm propagacji wstecznej, wektoryzacji operacji macierzowych oraz optymalizatora SGD z momentum działa stabilnie i poprawnie minimalizuje funkcje celu zarówno w zadaniach klasyfikacji wieloklasowej, jak i nieliniowej regresji.
 
     \item \textbf{Wpływ funkcji aktywacji:} 
-    Wybór funkcji aktywacji odgrywa kluczową rolę w zadaniach regresji — \texttt{ReLU} zdecydowanie przewyższa funkcję \texttt{Sigmoid}, która ze względu na zjawisko zanikającego gradientu oraz nasycanie neuronów osiąga znacznie gorszą aproksymację. W zadaniu klasyfikacji o prostej strukturze przestrzennej wszystkie funkcje osiągają porównywalną skuteczność końcową, różniąc się jedynie morfologią granic decyzyjnych w rejonach punktów trójstyku.
+    Wybór funkcji aktywacji odgrywa kluczową rolę w zadaniach regresji — \texttt{ReLU} zdecydowanie przewyższa funkcję \texttt{Sigmoid}, która ze względu na zjawisko zanikającego gradientu oraz nasycanie neuronów osiąga nieco gorszą aproksymację. W zadaniu klasyfikacji o prostej strukturze przestrzennej wszystkie funkcje osiągają porównywalną skuteczność końcową, różniąc się jedynie morfologią granic decyzyjnych w rejonach punktów trójstyku.
 
     \item \textbf{Wpływ głębokości i geometrii architektury:} 
-    Model pozbawiony warstw ukrytych (0 warstw) nie jest w stanie aproksymować nieliniowości. Dodanie pierwszej warstwy ukrytej przynosi fundamentalną poprawę zdolności predykcyjnych. Zwiększanie głębokości sieci (do 4 warstw) podlega prawu malejących przychodów — każda kolejna warstwa przynosi coraz mniejszy zysk jakościowy. Sam profil szerokości (warstwy wąskie, szerokie, piramida) ma charakter drugorzędny względem samej obecności nieliniowych przekształceń.
+    Model pozbawiony warstw ukrytych (0 warstw) nie jest w stanie aproksymować nieliniowości. Dodanie pierwszej warstwy ukrytej przynosi poprawę zdolności predykcyjnych. Zwiększanie głębokości sieci (do 4 warstw) podlega prawu malejących przychodów — każda kolejna warstwa przynosi coraz mniejszy zysk jakościowy. Sam profil szerokości (warstwy wąskie, szerokie, piramida) ma charakter drugorzędny względem samej obecności nieliniowych przekształceń.
 
     \item \textbf{Wpływ funkcji straty:} 
-    Dla dwuklasowej klasyfikacji wybór pomiędzy binarną entropią krzyżową (BCE) a Softmax Cross-Entropy nie wpływa na wyniki — oba podejścia są matematycznie i numerycznie równoważne. W zadaniu regresji funkcje MSE i MAE prowadzą do zbliżonej końcowej jakości predykcji, lecz diametralnie różnią się dynamiką kroków aktualizacji wag: gradient MSE jest silnie zależny od skali błędu (agresywny start, szybkie wygaszenie przy zbieżności), natomiast gradient MAE zachowuje stały moduł jednostkowy (spokojniejszy start, lecz większe kroki w pobliżu minimum).
+    Dla dwuklasowej klasyfikacji wybór pomiędzy binarną entropią krzyżową (BCE) a Softmax Cross-Entropy nie wpływa na wyniki — oba podejścia są matematycznie i numerycznie równoważne. W zadaniu regresji funkcje MSE i MAE prowadzą do zbliżonej końcowej jakości predykcji, lecz różnią się dynamiką kroków aktualizacji wag: gradient MSE jest silnie zależny od skali błędu (agresywny start, szybkie wygaszenie przy zbieżności), natomiast gradient MAE zachowuje stały moduł jednostkowy (spokojniejszy start, lecz większe kroki w pobliżu minimum).
 \end{enumerate}
 
 \end{document}

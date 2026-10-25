@@ -7,7 +7,12 @@ env/
 __pycache__/
 *.py[cod]
 
+# Data cache
+data/
+*.npz
+
 # Experiment results / generated figures
 **/results/
 results/
 *.png
+

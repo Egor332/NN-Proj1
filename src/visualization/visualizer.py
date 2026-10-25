@@ -230,3 +230,71 @@ class NetworkVisualizer:
             plt.show()
         else:
             plt.close()
+
+    def visualise_confusion_matrix(
+        self,
+        cm: np.ndarray,
+        class_names: list[str] | None = None,
+        title: str = "Confusion Matrix",
+        cmap: str = "Blues",
+        normalize: bool = False,
+        save_path: str | None = None,
+        show: bool = True
+    ):
+        """
+        Visualises a multi-class confusion matrix with annotations.
+
+        Args:
+            cm: Confusion matrix of shape (num_classes, num_classes) where rows are true and cols are predicted.
+            class_names: List of class labels (e.g. ['0', '1', ..., '9']).
+            title: Title for the plot.
+            cmap: Colormap for heatmap (default: 'Blues').
+            normalize: If True, displays proportions normalized by true class size (recall per class).
+            save_path: Optional path to save image file.
+            show: If True, displays the plot interactively.
+        """
+        num_classes = cm.shape[0]
+        if class_names is None:
+            class_names = [str(i) for i in range(num_classes)]
+
+        display_data = cm.astype(float) / cm.sum(axis=1, keepdims=True) if normalize else cm
+
+        fig, ax = plt.subplots(figsize=(10, 8))
+        im = ax.imshow(display_data, interpolation="nearest", cmap=cmap)
+        cbar = fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+        cbar.ax.tick_params(labelsize=10)
+
+        total_correct = int(np.trace(cm))
+        total_samples = int(np.sum(cm))
+        acc = (total_correct / total_samples) * 100.0 if total_samples > 0 else 0.0
+
+        plot_title = title if title is not None else f"Confusion Matrix (Accuracy={acc:.2f}%)"
+        ax.set_title(plot_title, fontsize=13, fontweight="bold", pad=12)
+        ax.set_xlabel("Predicted Label", fontsize=11, fontweight="bold", labelpad=8)
+
+        ax.set_ylabel("True Label", fontsize=11, fontweight="bold", labelpad=8)
+
+        tick_marks = np.arange(num_classes)
+        ax.set_xticks(tick_marks)
+        ax.set_xticklabels(class_names, fontsize=10)
+        ax.set_yticks(tick_marks)
+        ax.set_yticklabels(class_names, fontsize=10)
+
+        # Print text inside each cell
+        thresh = display_data.max() / 2.0
+        for i in range(num_classes):
+            for j in range(num_classes):
+                count = int(cm[i, j])
+                cell_text = f"{count}\n({display_data[i, j]*100:.1f}%)" if normalize else f"{count}"
+                color = "white" if display_data[i, j] > thresh else "black"
+                ax.text(j, i, cell_text, ha="center", va="center", color=color, fontsize=9, fontweight="bold" if i == j else "normal")
+
+        plt.tight_layout()
+
+        if save_path:
+            plt.savefig(save_path, dpi=300, bbox_inches="tight")
+        if show:
+            plt.show()
+        else:
+            plt.close()
+

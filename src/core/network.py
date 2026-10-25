@@ -88,5 +88,7 @@ class MLP:
                 if (epoch + 1) % eval_every == 0 or (epoch + 1) == epochs:
                     eval_callback(epoch + 1, self)
 
+
+
     def predict(self, X):
         return self.forward(X)
